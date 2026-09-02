@@ -37,14 +37,23 @@ struct KeyMatcher {
     }
 
     /// Keys whose resolved value equals `text` (exact), or — falling back —
-    /// whose non-empty value is contained in `text`.
+    /// whose value is contained in `text`. Whitespace-only values (e.g. a `" "`
+    /// placeholder) are ignored, and partial matching needs a value of at least
+    /// two visible characters so a stray `"-"` or `"."` doesn't match everything.
     func matchingKeys(for text: String) -> [String] {
-        let exact = entries.filter { $0.value == text }.map { $0.key }
+        let meaningful = entries.filter {
+            !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+
+        let exact = meaningful.filter { $0.value == text }.map { $0.key }
         if !exact.isEmpty {
             return exact.sorted()
         }
+
         guard allowsPartialMatch else { return [] }
-        let partial = entries.filter { !$0.value.isEmpty && text.contains($0.value) }.map { $0.key }
+        let partial = meaningful
+            .filter { $0.value.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 && text.contains($0.value) }
+            .map { $0.key }
         return partial.sorted()
     }
 

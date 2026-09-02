@@ -9,7 +9,10 @@ final class KeyMatcherTests: XCTestCase {
         "login.button": "Log In",
         "settings.turkish": "Türkçe",
         "duplicate.a": "Save",
-        "duplicate.b": "Save"
+        "duplicate.b": "Save",
+        "card.masked.ccv.text": " ",
+        "card.masked.cvv.text": "  ",
+        "sep.dash": "-"
     ]
 
     private func matcher(partial: Bool = true, undefined: Bool = true) -> KeyMatcher {
@@ -61,5 +64,17 @@ final class KeyMatcherTests: XCTestCase {
 
     func testEmptyIsStatic() {
         XCTAssertEqual(matcher().classify("   "), .staticText)
+    }
+
+    func testWhitespaceOnlyValuesNeverMatch() {
+        // "card.masked.ccv.text" = " " must not match every label that has a space.
+        XCTAssertEqual(matcher().classify("Card Number"), .staticText)
+        XCTAssertEqual(matcher().classify("Please Log In now"),
+                       .backendDefined(keys: ["login.button"]))
+    }
+
+    func testSingleCharacterValueDoesNotPartialMatch() {
+        // "sep.dash" = "-" should not match "Log-In-Now".
+        XCTAssertEqual(matcher().classify("Log-In-Now"), .staticText)
     }
 }
