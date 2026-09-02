@@ -56,8 +56,8 @@ enum ResultFormatter {
                 lines.append("Key: \(key)")
                 copyableKey = key
             case .staticText:
-                lines.append("\nSource: Static (hardcoded in code)")
-                lines.append("No matching CMS key found for this text.")
+                lines.append("\nSource: Unknown")
+                lines.append("No CMS key found for this text (hardcoded, or key missing).")
             }
         } else {
             lines.append("View: \(type(of: view))")

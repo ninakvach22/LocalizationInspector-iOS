@@ -116,7 +116,7 @@ final class InspectorRootViewController: UIViewController {
         guard let host = HostWindowResolver.keyWindow(), let matcher = makeMatcher() else { return }
 
         let hits = MissingKeyScanner.scan(host, matcher: matcher, ignoring: [])
-        var hardcoded = 0
+        var unknown = 0
         var undefined = 0
         var partial = 0
         for hit in hits {
@@ -134,7 +134,7 @@ final class InspectorRootViewController: UIViewController {
                 undefined += 1
                 color = .systemOrange
             default:
-                hardcoded += 1
+                unknown += 1
                 color = .systemRed
             }
 
@@ -151,7 +151,7 @@ final class InspectorRootViewController: UIViewController {
         if hits.isEmpty {
             showToast("No unbacked text — everything on screen has an exact CMS key")
         } else {
-            showToast("red \(hardcoded) hardcoded · orange \(undefined) undefined · yellow \(partial) partial")
+            showToast("red \(unknown) unknown · orange \(undefined) undefined · yellow \(partial) partial")
         }
     }
 
