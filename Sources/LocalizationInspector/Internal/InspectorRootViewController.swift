@@ -4,22 +4,15 @@ import UIKit
 final class InspectorRootViewController: UIViewController {
 
     var configuration: LocalizationInspectorConfiguration? {
-        didSet { updateNetworkButtonVisibility() }
+        didSet { relayoutAccessories() }
     }
 
     private var isInspecting = false
-    private var highlightBoxes: [UIView] = []
 
     private lazy var toggleButton: UIButton = makeFloatingButton(
         title: "🔑", size: 48, fontSize: 22,
         background: UIColor.darkGray.withAlphaComponent(0.85),
         action: #selector(toggleTapped)
-    )
-
-    private lazy var scanButton: UIButton = makeFloatingButton(
-        title: "⚠️", size: 40, fontSize: 18,
-        background: UIColor.systemRed.withAlphaComponent(0.85),
-        action: #selector(scanTapped)
     )
 
     private lazy var networkButton: UIButton = makeFloatingButton(
@@ -28,7 +21,18 @@ final class InspectorRootViewController: UIViewController {
         action: #selector(networkTapped)
     )
 
+    private lazy var defaultsButton: UIButton = makeFloatingButton(
+        title: "📋", size: 40, fontSize: 18,
+        background: UIColor.systemPurple.withAlphaComponent(0.85),
+        action: #selector(defaultsTapped)
+    )
+
     private var showsNetworkButton: Bool { configuration?.observesNetwork == true }
+
+    /// Buttons stacked above the drag handle, closest first.
+    private var accessoryButtons: [UIButton] {
+        (showsNetworkButton ? [networkButton] : []) + [defaultsButton]
+    }
 
     private lazy var tapOverlay: UIView = {
         let overlay = UIView()
@@ -44,23 +48,9 @@ final class InspectorRootViewController: UIViewController {
         view.backgroundColor = .clear
         view.addSubview(tapOverlay)
         view.addSubview(toggleButton)
-        view.addSubview(scanButton)
-
         toggleButton.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(buttonDragged(_:))))
         tapOverlay.isHidden = true
-        updateNetworkButtonVisibility()
-    }
-
-    private func updateNetworkButtonVisibility() {
-        guard isViewLoaded else { return }
-        if showsNetworkButton {
-            if networkButton.superview == nil {
-                view.addSubview(networkButton)
-                pinAccessoryButtons()
-            }
-        } else {
-            networkButton.removeFromSuperview()
-        }
+        relayoutAccessories()
     }
 
     override func viewDidLayoutSubviews() {
@@ -69,7 +59,20 @@ final class InspectorRootViewController: UIViewController {
         if toggleButton.center == .zero {
             let safeBottom = view.safeAreaInsets.bottom
             toggleButton.center = CGPoint(x: view.bounds.width - 40, y: view.bounds.height - safeBottom - 72)
-            pinAccessoryButtons()
+        }
+        relayoutAccessories()
+    }
+
+    private func relayoutAccessories() {
+        guard isViewLoaded else { return }
+        let active = accessoryButtons
+        for button in [networkButton, defaultsButton] where !active.contains(button) {
+            button.removeFromSuperview()
+        }
+        for (index, button) in active.enumerated() {
+            if button.superview == nil { view.addSubview(button) }
+            button.center = CGPoint(x: toggleButton.center.x,
+                                    y: toggleButton.center.y - CGFloat(index + 1) * 56)
         }
     }
 
@@ -77,16 +80,23 @@ final class InspectorRootViewController: UIViewController {
 
     func wantsTouch(at point: CGPoint, hitView: UIView?) -> Bool {
         guard let hitView = hitView else { return false }
-        if hitView === toggleButton || hitView === scanButton || hitView === networkButton { return true }
+        if hitView === toggleButton || accessoryButtons.contains(where: { $0 === hitView }) { return true }
         if isInspecting, hitView === tapOverlay { return true }
         return false
     }
 
-    // MARK: - Network
+    // MARK: - Accessory actions
 
     @objc private func networkTapped() {
-        let list = NetworkListViewController(apiHosts: configuration?.apiHosts ?? [])
-        let nav = UINavigationController(rootViewController: list)
+        presentModally(NetworkListViewController(apiHosts: configuration?.apiHosts ?? []))
+    }
+
+    @objc private func defaultsTapped() {
+        presentModally(UserDefaultsViewController())
+    }
+
+    private func presentModally(_ root: UIViewController) {
+        let nav = UINavigationController(rootViewController: root)
         nav.modalPresentationStyle = .fullScreen
         present(nav, animated: true)
     }
@@ -103,61 +113,6 @@ final class InspectorRootViewController: UIViewController {
         } else {
             toggleButton.backgroundColor = UIColor.darkGray.withAlphaComponent(0.85)
         }
-    }
-
-    // MARK: - Scan
-
-    @objc private func scanTapped() {
-        if !highlightBoxes.isEmpty {
-            clearHighlights()
-            scanButton.backgroundColor = UIColor.systemRed.withAlphaComponent(0.85)
-            return
-        }
-        guard let host = HostWindowResolver.keyWindow(), let matcher = makeMatcher() else { return }
-
-        let hits = MissingKeyScanner.scan(host, matcher: matcher, ignoring: [])
-        var unknown = 0
-        var undefined = 0
-        var partial = 0
-        for hit in hits {
-            // Host window and this window are both full-screen at the origin,
-            // so a rect in host-window space maps 1:1 into this view's space.
-            let frameInSelf = hit.view.convert(hit.view.bounds, to: host)
-            guard frameInSelf.width > 0, frameInSelf.height > 0 else { continue }
-
-            let color: UIColor
-            switch hit.classification {
-            case .backendPartial:
-                partial += 1
-                color = .systemYellow
-            case .backendUndefined:
-                undefined += 1
-                color = .systemOrange
-            default:
-                unknown += 1
-                color = .systemRed
-            }
-
-            let box = UIView(frame: frameInSelf.insetBy(dx: -2, dy: -2))
-            box.backgroundColor = .clear
-            box.layer.borderColor = color.cgColor
-            box.layer.borderWidth = 2
-            box.isUserInteractionEnabled = false
-            view.insertSubview(box, belowSubview: toggleButton)
-            highlightBoxes.append(box)
-        }
-
-        scanButton.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.9)
-        if hits.isEmpty {
-            showToast("No unbacked text — everything on screen has an exact CMS key")
-        } else {
-            showToast("red \(unknown) unknown · orange \(undefined) undefined · yellow \(partial) partial")
-        }
-    }
-
-    private func clearHighlights() {
-        highlightBoxes.forEach { $0.removeFromSuperview() }
-        highlightBoxes.removeAll()
     }
 
     // MARK: - Tap resolution
@@ -218,18 +173,12 @@ final class InspectorRootViewController: UIViewController {
         toggleButton.center = CGPoint(x: toggleButton.center.x + translation.x,
                                       y: toggleButton.center.y + translation.y)
         gesture.setTranslation(.zero, in: view)
-        pinAccessoryButtons()
+        relayoutAccessories()
         if gesture.state == .ended || gesture.state == .cancelled {
             clamp(toggleButton)
-            pinAccessoryButtons()
-            clamp(scanButton)
-            if showsNetworkButton { clamp(networkButton) }
+            relayoutAccessories()
+            accessoryButtons.forEach(clamp)
         }
-    }
-
-    private func pinAccessoryButtons() {
-        scanButton.center = CGPoint(x: toggleButton.center.x, y: toggleButton.center.y - 56)
-        networkButton.center = CGPoint(x: toggleButton.center.x, y: toggleButton.center.y - 108)
     }
 
     private func clamp(_ button: UIButton) {

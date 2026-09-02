@@ -12,13 +12,13 @@ Tek repo'dan yönetilir, tüm projelere Swift Package Manager ile eklenir.
 
 ## Nasıl görünür
 
-Sağ altta iki yüzen buton:
+Sağ altta yüzen butonlar:
 
 | Buton | İşlev |
 |-------|-------|
-| 🔑 | Inspect modunu açar/kapatır. Açıkken ekrandaki label / button / text field / text view'a dokun → key, renk, font, frame bilgisi alert'te çıkar. `exact match` (metin = değer) ve `partial match` (metin değeri içeriyor) ayrı gösterilir. "Copy Key" / "Copy Color" ile panoya kopyalar. |
-| ⚠️ | Ekranı tarar. Kırmızı = gerçek hardcoded, turuncu = CMS key formatında ama panelde tanımsız, sarı = partial match. Tekrar bas → temizler. |
-| 🌐 | Sadece `observesNetwork = true` iken görünür. Gözlemlenen HTTP(S) isteklerinin listesi → satıra dokun → request/response header'ları, body (JSON pretty-print), timing, boyut. Paylaş butonu cURL + response verir. |
+| 🔑 | Inspect modunu açar/kapatır. Açıkken ekrandaki label / button / text field / text view'a dokun → key, renk, font, frame bilgisi alert'te çıkar. `exact match` (metin = değer) ve `partial match` (metin değeri içeriyor) ayrı gösterilir; eşleşme yoksa "Unknown". "Copy Key" / "Copy Color" ile panoya kopyalar. |
+| 🌐 | Sadece `observesNetwork = true` iken görünür. Gözlemlenen HTTP(S) isteklerinin listesi (All / API / Other filtre) → satıra dokun → request/response header'ları, body (JSON pretty-print, görselse önizleme), timing, boyut. Paylaş butonu cURL + response/görsel verir. |
+| 📋 | UserDefaults içeriği (App / All filtre, key arama) → satıra dokun → tam değer, tip, kopyala / sil. |
 
 Butonlar sürüklenebilir. Inspect modu kapalıyken dokunuşlar uygulamaya normal geçer.
 
@@ -33,8 +33,11 @@ LocalizationInspector.shared.start(configuration: config)
 `URLSessionConfiguration.default` / `.ephemeral` kullanan session'ları yakalar — bu
 Alamofire'ın varsayılan `Session`'ını ve çoğu ağ katmanını kapsar. **Kapsamaz:**
 `URLSession.shared`, background session'lar, streaming/WebSocket, `URLSession` dışı
-(CFNetwork/soket) trafik. Response body'leri bellekte varsayılan 2 MB'a kadar tutulur
-(fazlası "truncated" olarak işaretlenir), son 500 istek saklanır.
+(CFNetwork/soket) trafik. Response body'leri bellekte `config.maxNetworkBodyBytes`
+(varsayılan 4 MB) kadar tutulur, son 500 istek saklanır.
+
+> Interceptor'ı Alamofire `Session` oluşmadan önce kurmak için `didFinishLaunchingWithOptions`
+> başında `LocalizationInspector.shared.observeNetwork()` çağır.
 
 ## Kurulum
 
@@ -113,14 +116,14 @@ xcodebuild -scheme LocalizationInspector-iOS -destination 'generic/platform=iOS 
 | `LocalizationInspector` | public facade — `start` / `stop` / `observeNetwork` / `isRunning` |
 | `LocalizationInspectorConfiguration` | public ayarlar (`entriesProvider`, `observesNetwork`, `apiHosts`, …) |
 | `InspectorWindow` | `.statusBar + 1` seviyesinde şeffaf pencere, hit-test pass-through |
-| `InspectorRootViewController` | yüzen butonlar (🔑 ⚠️ 🌐), tap-overlay, highlight kutuları, toast, alert |
+| `InspectorRootViewController` | yüzen butonlar (🔑 🌐 📋), tap-overlay, toast, alert |
 | `HostWindowResolver` | app'in key window'unu bulur (iOS 13+ / iOS 12) |
 | `KeyMatcher` | saf sınıflandırma: backendExact / backendPartial / backendUndefined / staticText |
-| `MissingKeyScanner` | view ağacını tarar |
 | `ViewIntrospector` | text / renk / font / frame / background çıkarımı |
 | `ResultFormatter` | alert metni |
 | `Network/NetworkObserver` | `URLProtocol` interceptor + `URLSessionConfiguration` swizzle |
 | `Network/NetworkTransaction` · `NetworkTransactionStore` | model + thread-safe, size-capped history |
 | `NetworkUI/NetworkListViewController` | istek listesi + All/API/Other filtre + arama |
-| `NetworkUI/NetworkDetailViewController` | header / body / timing / cURL |
+| `NetworkUI/NetworkDetailViewController` | header / body / görsel önizleme / timing / cURL |
 | `NetworkUI/NetworkFormatting` | scope sınıflandırma, byte/duration/JSON biçimleme |
+| `DefaultsUI/UserDefaultsViewController` | UserDefaults listesi / detay / kopyala / sil |
