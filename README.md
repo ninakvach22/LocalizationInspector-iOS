@@ -1,0 +1,106 @@
+# LocalizationInspector
+
+Debug aracı: çalışan uygulamada ekrandaki herhangi bir yazının hangi CMS
+(`ContentManager`) localization key'inden geldiğini gösterir; key'i olmayan
+(hardcoded veya panelde tanımsız) metinleri işaretler.
+
+Tek repo'dan yönetilir, tüm projelere Swift Package Manager ile eklenir.
+
+- **Min iOS:** 12.0
+- **Bağımlılık:** yok
+- **UI:** kendi `UIWindow`'unda yaşar (app root VC değişse de kaybolmaz)
+
+## Nasıl görünür
+
+Sağ altta iki yüzen buton:
+
+| Buton | İşlev |
+|-------|-------|
+| 🔑 | Inspect modunu açar/kapatır. Açıkken ekrandaki label / button / text field / text view'a dokun → key, renk, font, frame bilgisi alert'te çıkar. "Copy Key" / "Copy Color" ile panoya kopyalar. |
+| ⚠️ | Ekranı tarar. Kırmızı çerçeve = gerçek hardcoded metin. Turuncu çerçeve = CMS key formatında ama panelde tanımsız. Tekrar bas → temizler. |
+
+Butonlar sürüklenebilir. Inspect modu kapalıyken dokunuşlar uygulamaya normal geçer.
+
+## Kurulum
+
+### 1. Paketi ekle
+
+Xcode → **File › Add Package Dependencies** → repo URL'i gir:
+
+```
+https://github.com/altamira-yonetim-ve-danismanlik/LocalizationInspector-iOS
+```
+
+Sürüm kuralı: **Up to Next Major** (örn. `1.0.0`).
+`LocalizationInspector` ürününü **uygulama target'ına** ekle.
+
+> CocoaPods kullanan projelerde (Jety, Condo) SPM paketleri sorunsuz birlikte
+> çalışır — Podfile'a dokunmaya gerek yok.
+
+### 2. Başlat
+
+`AppDelegate` içinde, **yalnızca DEBUG build'de**:
+
+```swift
+#if DEBUG
+import LocalizationInspector
+#endif
+
+func applicationDidBecomeActive(_ application: UIApplication) {
+    // ... mevcut kod ...
+    #if DEBUG
+    LocalizationInspector.shared.start { ContentManager.shared.newContents }
+    #endif
+}
+```
+
+`start` idempotent'tir — birden çok kez çağrılması sorun değil.
+
+## Yapılandırma
+
+```swift
+var config = LocalizationInspectorConfiguration {
+    ContentManager.shared.newContents
+}
+config.detectsUndefinedKeys = true   // "a.b.c" metni + sözlükte yok => backend key (default true)
+config.allowsPartialMatch   = true   // value, metnin içinde geçiyorsa da eşleştir (default true)
+config.isEnabled            = true   // false => start() hiçbir şey yapmaz (default true)
+
+LocalizationInspector.shared.start(configuration: config)
+```
+
+`stop()` inspector penceresini kaldırır.
+
+## `detectsUndefinedKeys` neden var
+
+`ContentManager.getText(_:)`, key panelde tanımlı değilse key string'in kendisini
+döndürür (analist raw key'i görüp panelden tanımlasın diye). Bu durumda ekranda
+`welcome.title` gibi bir yazı görünür. Inspector bunu "hardcoded" değil,
+**"Backend key — panelde tanımlı değil"** olarak ayırır ve ⚠️ taramasında turuncu
+gösterir.
+
+## Geliştirme
+
+```bash
+swift test          # KeyMatcher birim testleri (saf, UIKit'siz)
+```
+
+UIKit katmanı iOS simulator hedefiyle derlenir:
+
+```bash
+xcodebuild -scheme LocalizationInspector -destination 'generic/platform=iOS Simulator' build
+```
+
+## Mimari
+
+| Dosya | Sorumluluk |
+|-------|------------|
+| `LocalizationInspector` | public facade — `start` / `stop` / `isRunning` |
+| `LocalizationInspectorConfiguration` | public ayarlar |
+| `InspectorWindow` | `.statusBar + 1` seviyesinde şeffaf pencere, hit-test pass-through |
+| `InspectorRootViewController` | yüzen butonlar, tap-overlay, highlight kutuları, toast, alert |
+| `HostWindowResolver` | app'in key window'unu bulur (iOS 13+ / iOS 12) |
+| `KeyMatcher` | saf sınıflandırma: backendDefined / backendUndefined / staticText |
+| `MissingKeyScanner` | view ağacını tarar |
+| `ViewIntrospector` | text / renk / font / frame / background çıkarımı |
+| `ResultFormatter` | alert metni |
