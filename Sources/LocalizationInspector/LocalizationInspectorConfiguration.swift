@@ -22,6 +22,11 @@ public struct LocalizationInspectorConfiguration {
     /// URL-loading interceptor, so it is opt-in. Default: `false`.
     public var observesNetwork = false
 
+    /// Largest response body kept in memory per request (bigger ones are stored
+    /// truncated and shown as text rather than, say, an image preview).
+    /// Default: 4 MB.
+    public var maxNetworkBodyBytes = 4 * 1024 * 1024
+
     /// Hosts that count as "your API" in the 🌐 list's All / API / Other filter,
     /// matched as a domain suffix (`"jety.app"` matches `"mobile.jety.app"`).
     /// When empty, the API filter falls back to "path contains /api". Analytics

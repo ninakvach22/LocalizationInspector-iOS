@@ -12,7 +12,7 @@ final class NetworkTransactionStore {
 
     var maxTransactions = 500
     /// Per-response body cap kept in memory.
-    var maxBodyBytes = 2 * 1024 * 1024
+    var maxBodyBytes = 4 * 1024 * 1024
 
     private let queue = DispatchQueue(label: "LocalizationInspector.NetworkStore")
 

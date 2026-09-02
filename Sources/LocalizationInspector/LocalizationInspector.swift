@@ -41,6 +41,7 @@ public final class LocalizationInspector {
         guard configuration.isEnabled, !isRunning else { return }
 
         if configuration.observesNetwork {
+            NetworkTransactionStore.shared.maxBodyBytes = configuration.maxNetworkBodyBytes
             NetworkObserver.install()
         }
 
