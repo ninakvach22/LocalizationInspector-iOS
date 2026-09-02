@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "LocalizationInspector",
+    name: "LocalizationInspector-iOS",
     platforms: [
         .iOS(.v12)
     ],
