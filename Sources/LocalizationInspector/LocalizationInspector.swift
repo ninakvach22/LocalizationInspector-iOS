@@ -22,12 +22,27 @@ public final class LocalizationInspector {
 
     public var isRunning: Bool { window != nil }
 
+    /// Start recording network traffic immediately, without showing any UI.
+    ///
+    /// Call this as early as possible — the top of
+    /// `application(_:didFinishLaunchingWithOptions:)` — so the interceptor is
+    /// in place before your networking layer creates its `URLSession`
+    /// (Alamofire reads `URLSessionConfiguration.default` when its `Session` is
+    /// first built, and that only happens once). Idempotent.
+    public func observeNetwork() {
+        NetworkObserver.install()
+    }
+
     public func start(entriesProvider: @escaping () -> [String: String]) {
         start(configuration: LocalizationInspectorConfiguration(entriesProvider: entriesProvider))
     }
 
     public func start(configuration: LocalizationInspectorConfiguration) {
         guard configuration.isEnabled, !isRunning else { return }
+
+        if configuration.observesNetwork {
+            NetworkObserver.install()
+        }
 
         let install = { [weak self] in
             guard let self = self, !self.isRunning else { return }

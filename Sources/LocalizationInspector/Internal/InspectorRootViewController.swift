@@ -3,7 +3,9 @@ import UIKit
 
 final class InspectorRootViewController: UIViewController {
 
-    var configuration: LocalizationInspectorConfiguration?
+    var configuration: LocalizationInspectorConfiguration? {
+        didSet { updateNetworkButtonVisibility() }
+    }
 
     private var isInspecting = false
     private var highlightBoxes: [UIView] = []
@@ -19,6 +21,14 @@ final class InspectorRootViewController: UIViewController {
         background: UIColor.systemRed.withAlphaComponent(0.85),
         action: #selector(scanTapped)
     )
+
+    private lazy var networkButton: UIButton = makeFloatingButton(
+        title: "🌐", size: 40, fontSize: 18,
+        background: UIColor.systemBlue.withAlphaComponent(0.85),
+        action: #selector(networkTapped)
+    )
+
+    private var showsNetworkButton: Bool { configuration?.observesNetwork == true }
 
     private lazy var tapOverlay: UIView = {
         let overlay = UIView()
@@ -38,6 +48,19 @@ final class InspectorRootViewController: UIViewController {
 
         toggleButton.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(buttonDragged(_:))))
         tapOverlay.isHidden = true
+        updateNetworkButtonVisibility()
+    }
+
+    private func updateNetworkButtonVisibility() {
+        guard isViewLoaded else { return }
+        if showsNetworkButton {
+            if networkButton.superview == nil {
+                view.addSubview(networkButton)
+                pinAccessoryButtons()
+            }
+        } else {
+            networkButton.removeFromSuperview()
+        }
     }
 
     override func viewDidLayoutSubviews() {
@@ -46,7 +69,7 @@ final class InspectorRootViewController: UIViewController {
         if toggleButton.center == .zero {
             let safeBottom = view.safeAreaInsets.bottom
             toggleButton.center = CGPoint(x: view.bounds.width - 40, y: view.bounds.height - safeBottom - 72)
-            pinScanButton()
+            pinAccessoryButtons()
         }
     }
 
@@ -54,9 +77,18 @@ final class InspectorRootViewController: UIViewController {
 
     func wantsTouch(at point: CGPoint, hitView: UIView?) -> Bool {
         guard let hitView = hitView else { return false }
-        if hitView === toggleButton || hitView === scanButton { return true }
+        if hitView === toggleButton || hitView === scanButton || hitView === networkButton { return true }
         if isInspecting, hitView === tapOverlay { return true }
         return false
+    }
+
+    // MARK: - Network
+
+    @objc private func networkTapped() {
+        let list = NetworkListViewController(apiHosts: configuration?.apiHosts ?? [])
+        let nav = UINavigationController(rootViewController: list)
+        nav.modalPresentationStyle = .fullScreen
+        present(nav, animated: true)
     }
 
     // MARK: - Toggle
@@ -186,16 +218,18 @@ final class InspectorRootViewController: UIViewController {
         toggleButton.center = CGPoint(x: toggleButton.center.x + translation.x,
                                       y: toggleButton.center.y + translation.y)
         gesture.setTranslation(.zero, in: view)
-        pinScanButton()
+        pinAccessoryButtons()
         if gesture.state == .ended || gesture.state == .cancelled {
             clamp(toggleButton)
-            pinScanButton()
+            pinAccessoryButtons()
             clamp(scanButton)
+            if showsNetworkButton { clamp(networkButton) }
         }
     }
 
-    private func pinScanButton() {
+    private func pinAccessoryButtons() {
         scanButton.center = CGPoint(x: toggleButton.center.x, y: toggleButton.center.y - 56)
+        networkButton.center = CGPoint(x: toggleButton.center.x, y: toggleButton.center.y - 108)
     }
 
     private func clamp(_ button: UIButton) {

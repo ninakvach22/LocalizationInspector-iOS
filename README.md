@@ -16,10 +16,25 @@ Sağ altta iki yüzen buton:
 
 | Buton | İşlev |
 |-------|-------|
-| 🔑 | Inspect modunu açar/kapatır. Açıkken ekrandaki label / button / text field / text view'a dokun → key, renk, font, frame bilgisi alert'te çıkar. "Copy Key" / "Copy Color" ile panoya kopyalar. |
-| ⚠️ | Ekranı tarar. Kırmızı çerçeve = gerçek hardcoded metin. Turuncu çerçeve = CMS key formatında ama panelde tanımsız. Tekrar bas → temizler. |
+| 🔑 | Inspect modunu açar/kapatır. Açıkken ekrandaki label / button / text field / text view'a dokun → key, renk, font, frame bilgisi alert'te çıkar. `exact match` (metin = değer) ve `partial match` (metin değeri içeriyor) ayrı gösterilir. "Copy Key" / "Copy Color" ile panoya kopyalar. |
+| ⚠️ | Ekranı tarar. Kırmızı = gerçek hardcoded, turuncu = CMS key formatında ama panelde tanımsız, sarı = partial match. Tekrar bas → temizler. |
+| 🌐 | Sadece `observesNetwork = true` iken görünür. Gözlemlenen HTTP(S) isteklerinin listesi → satıra dokun → request/response header'ları, body (JSON pretty-print), timing, boyut. Paylaş butonu cURL + response verir. |
 
 Butonlar sürüklenebilir. Inspect modu kapalıyken dokunuşlar uygulamaya normal geçer.
+
+### Network observer
+
+```swift
+var config = LocalizationInspectorConfiguration { ContentManager.shared.newContents }
+config.observesNetwork = true
+LocalizationInspector.shared.start(configuration: config)
+```
+
+`URLSessionConfiguration.default` / `.ephemeral` kullanan session'ları yakalar — bu
+Alamofire'ın varsayılan `Session`'ını ve çoğu ağ katmanını kapsar. **Kapsamaz:**
+`URLSession.shared`, background session'lar, streaming/WebSocket, `URLSession` dışı
+(CFNetwork/soket) trafik. Response body'leri bellekte varsayılan 2 MB'a kadar tutulur
+(fazlası "truncated" olarak işaretlenir), son 500 istek saklanır.
 
 ## Kurulum
 
@@ -88,19 +103,24 @@ swift test          # KeyMatcher birim testleri (saf, UIKit'siz)
 UIKit katmanı iOS simulator hedefiyle derlenir:
 
 ```bash
-xcodebuild -scheme LocalizationInspector -destination 'generic/platform=iOS Simulator' build
+xcodebuild -scheme LocalizationInspector-iOS -destination 'generic/platform=iOS Simulator' build
 ```
 
 ## Mimari
 
 | Dosya | Sorumluluk |
 |-------|------------|
-| `LocalizationInspector` | public facade — `start` / `stop` / `isRunning` |
-| `LocalizationInspectorConfiguration` | public ayarlar |
+| `LocalizationInspector` | public facade — `start` / `stop` / `observeNetwork` / `isRunning` |
+| `LocalizationInspectorConfiguration` | public ayarlar (`entriesProvider`, `observesNetwork`, `apiHosts`, …) |
 | `InspectorWindow` | `.statusBar + 1` seviyesinde şeffaf pencere, hit-test pass-through |
-| `InspectorRootViewController` | yüzen butonlar, tap-overlay, highlight kutuları, toast, alert |
+| `InspectorRootViewController` | yüzen butonlar (🔑 ⚠️ 🌐), tap-overlay, highlight kutuları, toast, alert |
 | `HostWindowResolver` | app'in key window'unu bulur (iOS 13+ / iOS 12) |
-| `KeyMatcher` | saf sınıflandırma: backendDefined / backendUndefined / staticText |
+| `KeyMatcher` | saf sınıflandırma: backendExact / backendPartial / backendUndefined / staticText |
 | `MissingKeyScanner` | view ağacını tarar |
 | `ViewIntrospector` | text / renk / font / frame / background çıkarımı |
 | `ResultFormatter` | alert metni |
+| `Network/NetworkObserver` | `URLProtocol` interceptor + `URLSessionConfiguration` swizzle |
+| `Network/NetworkTransaction` · `NetworkTransactionStore` | model + thread-safe, size-capped history |
+| `NetworkUI/NetworkListViewController` | istek listesi + All/API/Other filtre + arama |
+| `NetworkUI/NetworkDetailViewController` | header / body / timing / cURL |
+| `NetworkUI/NetworkFormatting` | scope sınıflandırma, byte/duration/JSON biçimleme |

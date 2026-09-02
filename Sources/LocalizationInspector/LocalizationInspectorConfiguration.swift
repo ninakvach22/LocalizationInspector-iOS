@@ -17,6 +17,17 @@ public struct LocalizationInspectorConfiguration {
     /// not only on an exact match. Default: `true`.
     public var allowsPartialMatch = true
 
+    /// Record every HTTP(S) request/response (timing, headers, bodies) made
+    /// through `URLSession` and browse them from the 🌐 button. Installs a
+    /// URL-loading interceptor, so it is opt-in. Default: `false`.
+    public var observesNetwork = false
+
+    /// Hosts that count as "your API" in the 🌐 list's All / API / Other filter,
+    /// matched as a domain suffix (`"jety.app"` matches `"mobile.jety.app"`).
+    /// When empty, the API filter falls back to "path contains /api". Analytics
+    /// and telemetry traffic then lands under "Other". Default: `[]`.
+    public var apiHosts: [String] = []
+
     /// Master switch. `start(...)` does nothing while this is `false`, so a
     /// release build can leave the call in place. Default: `true`.
     public var isEnabled = true
