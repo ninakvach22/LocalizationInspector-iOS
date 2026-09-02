@@ -126,24 +126,31 @@ final class InspectorRootViewController: UIViewController {
         let screenPoint = view.window?.convert(pointInSelf, to: nil) ?? pointInSelf
         let pointInHost = host.convert(screenPoint, from: nil)
 
-        guard let target = deepestView(at: pointInHost, in: host, hostWindow: host) else { return }
+        let target = deepestTextView(at: pointInHost, in: host, hostWindow: host)
+            ?? host.hitTest(pointInHost, with: nil)
+            ?? host
         let output = ResultFormatter.makeOutput(for: target, hostWindow: host, matcher: matcher)
         presentResult(output)
     }
 
-    /// Frontmost, deepest view containing `point` (given in `hostWindow` coordinates),
-    /// ignoring `isUserInteractionEnabled` — UILabel has it off by default, so the real
-    /// `hitTest` walks straight past labels and returns a textless ancestor.
-    private func deepestView(at point: CGPoint, in view: UIView, hostWindow: UIWindow) -> UIView? {
+    /// Frontmost, deepest text-bearing view containing `point` (in `hostWindow`
+    /// coordinates). Unlike the real `hitTest` it does NOT skip views with
+    /// `isUserInteractionEnabled == false` (UILabel has it off by default), but it
+    /// also never returns a non-text container — so a full-screen transparent
+    /// overlay on top of the content is walked past instead of swallowing the tap.
+    private func deepestTextView(at point: CGPoint, in view: UIView, hostWindow: UIWindow) -> UIView? {
         guard !view.isHidden, view.alpha > 0.01 else { return nil }
         let local = view.convert(point, from: hostWindow)
         guard view.bounds.contains(local) else { return nil }
         for subview in view.subviews.reversed() {
-            if let hit = deepestView(at: point, in: subview, hostWindow: hostWindow) {
+            if let hit = deepestTextView(at: point, in: subview, hostWindow: hostWindow) {
                 return hit
             }
         }
-        return view
+        if let text = ViewIntrospector.text(from: view), !text.isEmpty {
+            return view
+        }
+        return nil
     }
 
     private func presentResult(_ output: ResultFormatter.Output) {
