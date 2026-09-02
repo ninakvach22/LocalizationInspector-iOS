@@ -23,10 +23,11 @@ enum MissingKeyScanner {
 
             if !subview.isHidden, subview.alpha > 0.01,
                let text = ViewIntrospector.text(from: subview), !text.isEmpty {
-                switch matcher.classify(text) {
-                case .backendDefined:
+                let classification = matcher.classify(text)
+                switch classification {
+                case .backendExact:
                     break
-                case let classification:
+                case .backendPartial, .backendUndefined, .staticText:
                     results.append(Hit(view: subview, text: text, classification: classification))
                 }
             }

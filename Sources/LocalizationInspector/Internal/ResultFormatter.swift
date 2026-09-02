@@ -35,13 +35,21 @@ enum ResultFormatter {
             }
 
             switch matcher.classify(text) {
-            case let .backendDefined(keys) where keys.count == 1:
-                lines.append("\nSource: Backend (CMS)")
+            case let .backendExact(keys) where keys.count == 1:
+                lines.append("\nSource: Backend (CMS) — exact match")
                 lines.append("Key: \(keys[0])")
                 copyableKey = keys[0]
-            case let .backendDefined(keys):
-                lines.append("\nSource: Backend (CMS) — multiple matches")
-                lines.append("Possible keys:\n" + keys.joined(separator: "\n"))
+            case let .backendExact(keys):
+                lines.append("\nSource: Backend (CMS) — exact match, \(keys.count) keys share this value")
+                lines.append("Keys:\n" + keys.joined(separator: "\n"))
+                copyableKey = keys.first
+            case let .backendPartial(keys) where keys.count == 1:
+                lines.append("\nSource: Backend (CMS) — partial match")
+                lines.append("This text contains the value of key: \(keys[0])")
+                copyableKey = keys[0]
+            case let .backendPartial(keys):
+                lines.append("\nSource: Backend (CMS) — partial match, \(keys.count) candidates")
+                lines.append("Contains the value of one of:\n" + keys.joined(separator: "\n"))
                 copyableKey = keys.first
             case let .backendUndefined(key):
                 lines.append("\nSource: Backend (CMS) — key not defined in panel")

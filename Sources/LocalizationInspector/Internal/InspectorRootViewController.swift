@@ -86,19 +86,29 @@ final class InspectorRootViewController: UIViewController {
         let hits = MissingKeyScanner.scan(host, matcher: matcher, ignoring: [])
         var hardcoded = 0
         var undefined = 0
+        var partial = 0
         for hit in hits {
             // Host window and this window are both full-screen at the origin,
             // so a rect in host-window space maps 1:1 into this view's space.
             let frameInSelf = hit.view.convert(hit.view.bounds, to: host)
             guard frameInSelf.width > 0, frameInSelf.height > 0 else { continue }
 
-            let isUndefined: Bool
-            if case .backendUndefined = hit.classification { isUndefined = true } else { isUndefined = false }
-            isUndefined ? (undefined += 1) : (hardcoded += 1)
+            let color: UIColor
+            switch hit.classification {
+            case .backendPartial:
+                partial += 1
+                color = .systemYellow
+            case .backendUndefined:
+                undefined += 1
+                color = .systemOrange
+            default:
+                hardcoded += 1
+                color = .systemRed
+            }
 
             let box = UIView(frame: frameInSelf.insetBy(dx: -2, dy: -2))
             box.backgroundColor = .clear
-            box.layer.borderColor = (isUndefined ? UIColor.systemOrange : UIColor.systemRed).cgColor
+            box.layer.borderColor = color.cgColor
             box.layer.borderWidth = 2
             box.isUserInteractionEnabled = false
             view.insertSubview(box, belowSubview: toggleButton)
@@ -107,9 +117,9 @@ final class InspectorRootViewController: UIViewController {
 
         scanButton.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.9)
         if hits.isEmpty {
-            showToast("No unbacked text — everything on screen has a defined CMS key")
+            showToast("No unbacked text — everything on screen has an exact CMS key")
         } else {
-            showToast("\(hardcoded) hardcoded · \(undefined) undefined key(s) highlighted")
+            showToast("red \(hardcoded) hardcoded · orange \(undefined) undefined · yellow \(partial) partial")
         }
     }
 

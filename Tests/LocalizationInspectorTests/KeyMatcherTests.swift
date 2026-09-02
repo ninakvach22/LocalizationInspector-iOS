@@ -21,17 +21,17 @@ final class KeyMatcherTests: XCTestCase {
 
     func testExactMatchReturnsSingleKey() {
         XCTAssertEqual(matcher().classify("Welcome to Zorlu World"),
-                       .backendDefined(keys: ["welcome.title"]))
+                       .backendExact(keys: ["welcome.title"]))
     }
 
     func testExactMatchReturnsAllDuplicateKeysSorted() {
         XCTAssertEqual(matcher().classify("Save"),
-                       .backendDefined(keys: ["duplicate.a", "duplicate.b"]))
+                       .backendExact(keys: ["duplicate.a", "duplicate.b"]))
     }
 
-    func testPartialMatchWhenEnabled() {
+    func testPartialMatchIsReportedSeparatelyFromExact() {
         XCTAssertEqual(matcher(partial: true).classify("Please Log In now"),
-                       .backendDefined(keys: ["login.button"]))
+                       .backendPartial(keys: ["login.button"]))
     }
 
     func testPartialMatchIgnoredWhenDisabled() {
@@ -70,7 +70,7 @@ final class KeyMatcherTests: XCTestCase {
         // "card.masked.ccv.text" = " " must not match every label that has a space.
         XCTAssertEqual(matcher().classify("Card Number"), .staticText)
         XCTAssertEqual(matcher().classify("Please Log In now"),
-                       .backendDefined(keys: ["login.button"]))
+                       .backendPartial(keys: ["login.button"]))
     }
 
     func testSingleCharacterValueDoesNotPartialMatch() {
