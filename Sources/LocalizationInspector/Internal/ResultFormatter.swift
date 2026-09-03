@@ -36,13 +36,23 @@ enum ResultFormatter {
 
             let recordedKeys = TextSetterSwizzler.recordedKeys(for: sourceView)
             if recordedKeys.count == 1 {
-                lines.append("\nSource: Backend (CMS) — recorded at set time (exact)")
+                lines.append("\nSource: Backend (CMS) — exact key (recorded)")
                 lines.append("Key: \(recordedKeys[0])")
                 copyableKey = recordedKeys[0]
             } else if recordedKeys.count > 1 {
                 lines.append("\nSource: Backend (CMS) — recorded, \(recordedKeys.count) keys share this value")
                 lines.append("Keys:\n" + recordedKeys.joined(separator: "\n"))
                 copyableKey = recordedKeys.first
+            } else if KeyResolutionRecorder.shared.isActive {
+                // Recording is on and this view carries no key ⇒ it was not set
+                // from `.value`. Definitive, no fuzzy string matching.
+                if case let .backendUndefined(key) = matcher.classify(text) {
+                    lines.append("\nSource: Backend (CMS) — key not defined in panel")
+                    lines.append("Key: \(key)")
+                    copyableKey = key
+                } else {
+                    lines.append("\nSource: Not from CMS — hardcoded / not localized")
+                }
             } else {
                 switch matcher.classify(text) {
             case let .backendExact(keys) where keys.count == 1:
