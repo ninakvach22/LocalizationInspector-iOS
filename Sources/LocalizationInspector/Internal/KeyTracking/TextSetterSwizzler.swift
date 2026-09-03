@@ -24,13 +24,11 @@ enum TextSetterSwizzler {
     }
 
     static func attachKeys(for text: String?, to view: UIView) {
-        guard let text = text, !text.isEmpty else { return }
+        guard KeyResolutionRecorder.shared.isActive,
+              let text = text, !text.isEmpty else { return }
         let keys = KeyResolutionRecorder.shared.keys(for: text)
-        if keys.isEmpty {
-            objc_setAssociatedObject(view, &associatedKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        } else {
-            objc_setAssociatedObject(view, &associatedKey, keys, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        }
+        objc_setAssociatedObject(view, &associatedKey, keys.isEmpty ? nil : keys,
+                                 .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
     }
 
     private static func swizzle(_ cls: AnyClass, _ original: Selector, to replacement: Selector) {
