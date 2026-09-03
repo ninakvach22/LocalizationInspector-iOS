@@ -179,36 +179,35 @@ final class InspectorRootViewController: UIViewController {
         present(nav, animated: true)
     }
 
-    /// Deepest meaningful view under `point`. Walks the key window's subviews
-    /// front-to-back and skips any transparent, near-full-screen container
-    /// (e.g. an iOS 26 floating tab-bar host) so the tap lands on the real
-    /// content behind it. Ignores `isUserInteractionEnabled` so passive labels
-    /// are still selectable.
+    /// Deepest meaningful view under `point`. When the frontmost child at a
+    /// level is a transparent container that fills its parent (an iOS 26
+    /// floating tab-bar host, a passthrough transition view) and nothing under
+    /// the point lives inside it, the search continues behind it to the next
+    /// sibling. Ignores `isUserInteractionEnabled` so passive labels count.
     private func pickView(at point: CGPoint, host: UIWindow) -> UIView {
-        for windowSubview in host.subviews.reversed() {
-            guard let candidate = deepestLeaf(at: point, in: windowSubview, host: host) else { continue }
-            if isSkippableOverlay(candidate, host: host) { continue }
-            return candidate
-        }
-        return host
+        pickView(at: point, in: host, host: host) ?? host
     }
 
-    private func deepestLeaf(at point: CGPoint, in view: UIView, host: UIWindow) -> UIView? {
+    private func pickView(at point: CGPoint, in view: UIView, host: UIWindow) -> UIView? {
         guard !view.isHidden, view.alpha > 0.01 else { return nil }
+        guard view.bounds.width > 0, view.bounds.height > 0 else { return nil }
         guard view.bounds.contains(view.convert(point, from: host)) else { return nil }
         for subview in view.subviews.reversed() {
-            if let hit = deepestLeaf(at: point, in: subview, host: host) { return hit }
+            guard let hit = pickView(at: point, in: subview, host: host) else { continue }
+            if hit === subview, isPassThroughContainer(subview) { continue }
+            return hit
         }
         return view
     }
 
-    private func isSkippableOverlay(_ view: UIView, host: UIWindow) -> Bool {
+    private func isPassThroughContainer(_ view: UIView) -> Bool {
         if let text = ViewIntrospector.text(from: view), !text.isEmpty { return false }
         if (view as? UIImageView)?.image != nil { return false }
         if let bg = view.backgroundColor, bg.cgColor.alpha > 0.01 { return false }
+        guard let parent = view.superview else { return false }
         let area = view.bounds.width * view.bounds.height
-        let windowArea = host.bounds.width * host.bounds.height
-        return windowArea > 0 && area >= windowArea * 0.85
+        let parentArea = parent.bounds.width * parent.bounds.height
+        return parentArea > 0 && area >= parentArea * 0.9
     }
 
     // MARK: - Toggle

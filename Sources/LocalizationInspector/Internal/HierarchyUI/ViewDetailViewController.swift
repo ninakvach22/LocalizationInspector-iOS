@@ -33,8 +33,11 @@ final class ViewDetailViewController: UITableViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        rebuild()
-        if let target = target { ViewHighlighter.highlight(target) }
+        // Don't re-snapshot: a table/collection cell may be recycled by the time
+        // this screen re-appears. Refresh only on explicit request (Runtime toggle).
+        if let target = target, target.window != nil {
+            ViewHighlighter.highlight(target)
+        }
     }
 
     private func rebuild() {
