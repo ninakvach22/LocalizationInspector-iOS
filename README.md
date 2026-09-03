@@ -16,12 +16,31 @@ Sağ altta yüzen butonlar:
 
 | Buton | İşlev |
 |-------|-------|
-| 🔑 | Inspect modunu açar/kapatır. Açıkken ekrandaki label / button / text field / text view'a dokun → key, renk, font, frame bilgisi alert'te çıkar. `exact match` (metin = değer) ve `partial match` (metin değeri içeriyor) ayrı gösterilir; eşleşme yoksa "Unknown". "Copy Key" / "Copy Color" ile panoya kopyalar. |
+| 🔑 | Inspect modunu açar/kapatır. Açıkken ekrandaki label / button / text field / text view'a dokun → key, renk, font, frame bilgisi alert'te çıkar. Key: `recordKeyResolution` kuruluysa **kaydedilmiş kesin key**; değilse string eşleşmesi (`exact` / `partial` / `Unknown`). "Copy Key" / "Copy Color". |
 | 🌐 | Sadece `observesNetwork = true` iken görünür. Gözlemlenen HTTP(S) isteklerinin listesi (All / API / Other filtre) → satıra dokun → request/response header'ları, body (JSON pretty-print, görselse önizleme), timing, boyut. Paylaş butonu cURL + response/görsel verir. |
 | 📋 | UserDefaults içeriği (App / All filtre, key arama) → satıra dokun → tam değer, tip, kopyala / sil. |
 | 🌲 | View hierarchy ağacı (aç/kapa, class'a göre arama). Satır → alt ağacı aç/kapat; ⓘ → view detayı (frame/bounds, renkler, layer, constraint sayısı, text). "Pick" → ekranda bir view'a dokun, direkt detayına git; "Flash" gerçek view'ı ekranda kısa süre işaretler. |
 
 Butonlar sürüklenebilir. Inspect modu kapalıyken dokunuşlar uygulamaya normal geçer.
+
+### Kesin key (recordKeyResolution)
+
+String eşleştirmesi aynı değere sahip key'leri ayıramaz. Content katmanına tek satır
+eklersen 🔑 kesin key'i verir:
+
+```swift
+func getText(_ key: String) -> String {
+    let value = newContents[key] ?? key
+    #if DEBUG
+    LocalizationInspector.shared.recordKeyResolution(key: key, value: value)
+    #endif
+    return value
+}
+```
+
+İlk çağrı UIKit text setter'larını (`UILabel.text`, `UIButton.setTitle:for:`,
+`UITextField.text`, `UITextView.text`) swizzle eder; kaydedilmiş bir string bir view'a
+atandığında o key view'a associated object olarak iliştirilir. Tap'te bu okunur.
 
 ### Network observer
 

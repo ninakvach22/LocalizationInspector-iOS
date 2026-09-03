@@ -34,7 +34,17 @@ enum ResultFormatter {
                 lines.append("Frame: x:\(Int(frame.origin.x)) y:\(Int(frame.origin.y)) w:\(Int(frame.width)) h:\(Int(frame.height))")
             }
 
-            switch matcher.classify(text) {
+            let recordedKeys = TextSetterSwizzler.recordedKeys(for: sourceView)
+            if recordedKeys.count == 1 {
+                lines.append("\nSource: Backend (CMS) — recorded at set time (exact)")
+                lines.append("Key: \(recordedKeys[0])")
+                copyableKey = recordedKeys[0]
+            } else if recordedKeys.count > 1 {
+                lines.append("\nSource: Backend (CMS) — recorded, \(recordedKeys.count) keys share this value")
+                lines.append("Keys:\n" + recordedKeys.joined(separator: "\n"))
+                copyableKey = recordedKeys.first
+            } else {
+                switch matcher.classify(text) {
             case let .backendExact(keys) where keys.count == 1:
                 lines.append("\nSource: Backend (CMS) — exact match")
                 lines.append("Key: \(keys[0])")
@@ -58,6 +68,7 @@ enum ResultFormatter {
             case .staticText:
                 lines.append("\nSource: Unknown")
                 lines.append("No CMS key found for this text (hardcoded, or key missing).")
+                }
             }
         } else {
             lines.append("View: \(type(of: view))")

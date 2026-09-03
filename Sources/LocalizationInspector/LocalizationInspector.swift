@@ -22,6 +22,30 @@ public final class LocalizationInspector {
 
     public var isRunning: Bool { window != nil }
 
+    /// Report a `key → resolved value` pair every time your content layer
+    /// resolves one (one line inside `ContentManager.getText`). The inspector
+    /// then swizzles the UIKit text setters and, when a recorded string is
+    /// assigned to a label / button / field, stores the originating key on that
+    /// view — so a tap reports the **exact** key it was set from instead of
+    /// guessing by string match. Call it once early (before any text is set);
+    /// the first call installs the swizzle.
+    ///
+    ///     func getText(_ key: String) -> String {
+    ///         let value = newContents[key] ?? key
+    ///         #if DEBUG
+    ///         LocalizationInspector.shared.recordKeyResolution(key: key, value: value)
+    ///         #endif
+    ///         return value
+    ///     }
+    public func recordKeyResolution(key: String, value: String) {
+        if !KeyResolutionRecorder.shared.isActive {
+            KeyResolutionRecorder.shared.activate()
+            let install = { TextSetterSwizzler.install() }
+            if Thread.isMainThread { install() } else { DispatchQueue.main.async(execute: install) }
+        }
+        KeyResolutionRecorder.shared.record(key: key, value: value)
+    }
+
     /// Start recording network traffic immediately, without showing any UI.
     ///
     /// Call this as early as possible — the top of
