@@ -4,11 +4,17 @@ import UIKit
 final class ViewDetailViewController: UITableViewController {
 
     private weak var target: UIView?
+    private let title0: String
+    private let baseSections: [ViewDescribe.Section]
     private var sections: [ViewDescribe.Section] = []
     private var showsRuntime = false
 
     init(view: UIView) {
         self.target = view
+        self.title0 = String(describing: type(of: view))
+        // Snapshot immediately — a table/collection cell can be recycled before
+        // this screen even finishes presenting.
+        self.baseSections = ViewDescribe.sections(for: view)
         if #available(iOS 13.0, *) {
             super.init(style: .insetGrouped)
         } else {
@@ -20,7 +26,7 @@ final class ViewDetailViewController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = target.map { String(describing: type(of: $0)) } ?? "View"
+        title = title0
         navigationItem.rightBarButtonItems = [
             UIBarButtonItem(barButtonSystemItem: .action, target: self, action: #selector(share)),
             UIBarButtonItem(title: "Runtime", style: .plain, target: self, action: #selector(toggleRuntime))
@@ -41,9 +47,8 @@ final class ViewDetailViewController: UITableViewController {
     }
 
     private func rebuild() {
-        guard let target = target else { sections = []; tableView.reloadData(); return }
-        sections = ViewDescribe.sections(for: target)
-        if showsRuntime {
+        sections = baseSections
+        if showsRuntime, let target = target {
             sections += RuntimeIntrospect.propertySections(for: target)
             if let ivars = RuntimeIntrospect.ivarSection(for: target) { sections.append(ivars) }
         }
@@ -57,8 +62,10 @@ final class ViewDetailViewController: UITableViewController {
     }
 
     @objc private func share() {
-        guard let target = target else { return }
-        let sheet = UIActivityViewController(activityItems: [ViewDescribe.plainText(for: target)], applicationActivities: nil)
+        let text = sections.map { section in
+            "[\(section.title)]\n" + section.rows.map { "  \($0.label): \($0.value)" }.joined(separator: "\n")
+        }.joined(separator: "\n\n")
+        let sheet = UIActivityViewController(activityItems: [text], applicationActivities: nil)
         sheet.popoverPresentationController?.barButtonItem = navigationItem.rightBarButtonItems?.first
         present(sheet, animated: true)
     }

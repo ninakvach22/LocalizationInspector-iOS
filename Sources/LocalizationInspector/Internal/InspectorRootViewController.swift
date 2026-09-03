@@ -171,7 +171,9 @@ final class InspectorRootViewController: UIViewController {
 
         ViewHighlighter.highlight(picked)
 
-        let hierarchy = makeHierarchyController()
+        let hierarchy = ViewHierarchyViewController(root: host, reveal: picked) { [weak self] in
+            self?.beginViewPick()
+        }
         let detail = ViewDetailViewController(view: picked)
         let nav = UINavigationController(rootViewController: hierarchy)
         nav.viewControllers = [hierarchy, detail]
