@@ -27,17 +27,32 @@ final class InspectorRootViewController: UIViewController {
         action: #selector(defaultsTapped)
     )
 
+    private lazy var treeButton: UIButton = makeFloatingButton(
+        title: "🌲", size: 40, fontSize: 18,
+        background: UIColor.systemTeal.withAlphaComponent(0.85),
+        action: #selector(treeTapped)
+    )
+
     private var showsNetworkButton: Bool { configuration?.observesNetwork == true }
 
     /// Buttons stacked above the drag handle, closest first.
     private var accessoryButtons: [UIButton] {
-        (showsNetworkButton ? [networkButton] : []) + [defaultsButton]
+        (showsNetworkButton ? [networkButton] : []) + [defaultsButton, treeButton]
     }
+
+    private var isPickingView = false
 
     private lazy var tapOverlay: UIView = {
         let overlay = UIView()
         overlay.backgroundColor = .clear
         overlay.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(overlayTapped(_:))))
+        return overlay
+    }()
+
+    private lazy var pickOverlay: UIView = {
+        let overlay = UIView()
+        overlay.backgroundColor = UIColor.systemTeal.withAlphaComponent(0.06)
+        overlay.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(pickOverlayTapped(_:))))
         return overlay
     }()
 
@@ -66,7 +81,7 @@ final class InspectorRootViewController: UIViewController {
     private func relayoutAccessories() {
         guard isViewLoaded else { return }
         let active = accessoryButtons
-        for button in [networkButton, defaultsButton] where !active.contains(button) {
+        for button in [networkButton, defaultsButton, treeButton] where !active.contains(button) {
             button.removeFromSuperview()
         }
         for (index, button) in active.enumerated() {
@@ -82,6 +97,7 @@ final class InspectorRootViewController: UIViewController {
         guard let hitView = hitView else { return false }
         if hitView === toggleButton || accessoryButtons.contains(where: { $0 === hitView }) { return true }
         if isInspecting, hitView === tapOverlay { return true }
+        if isPickingView, hitView === pickOverlay { return true }
         return false
     }
 
@@ -95,10 +111,66 @@ final class InspectorRootViewController: UIViewController {
         presentModally(UserDefaultsViewController())
     }
 
+    @objc private func treeTapped() {
+        presentModally(makeHierarchyController())
+    }
+
+    private func makeHierarchyController() -> ViewHierarchyViewController {
+        ViewHierarchyViewController(root: HostWindowResolver.keyWindow()) { [weak self] in
+            self?.beginViewPick()
+        }
+    }
+
     private func presentModally(_ root: UIViewController) {
         let nav = UINavigationController(rootViewController: root)
         nav.modalPresentationStyle = .fullScreen
         present(nav, animated: true)
+    }
+
+    // MARK: - Pick a view on screen
+
+    private func beginViewPick() {
+        let show = { [weak self] in
+            guard let self = self else { return }
+            self.isPickingView = true
+            self.pickOverlay.frame = self.view.bounds
+            self.view.insertSubview(self.pickOverlay, belowSubview: self.toggleButton)
+            self.showToast("Tap any view to inspect it")
+        }
+        if presentedViewController != nil {
+            dismiss(animated: true, completion: show)
+        } else {
+            show()
+        }
+    }
+
+    @objc private func pickOverlayTapped(_ gesture: UITapGestureRecognizer) {
+        isPickingView = false
+        pickOverlay.removeFromSuperview()
+        guard let host = HostWindowResolver.keyWindow() else { return }
+        let pointInSelf = gesture.location(in: view)
+        let screenPoint = view.window?.convert(pointInSelf, to: nil) ?? pointInSelf
+        let pointInHost = host.convert(screenPoint, from: nil)
+        let picked = deepestView(at: pointInHost, in: host, hostWindow: host) ?? host
+
+        let nav = UINavigationController(rootViewController: makeHierarchyController())
+        nav.modalPresentationStyle = .fullScreen
+        nav.pushViewController(ViewDetailViewController(view: picked), animated: false)
+        present(nav, animated: true)
+    }
+
+    /// Deepest view containing `point` (in `hostWindow` coords), any kind, ignoring
+    /// `isUserInteractionEnabled`.
+    private func deepestView(at point: CGPoint, in view: UIView, hostWindow: UIWindow) -> UIView? {
+        guard !view.isHidden, view.alpha > 0.01 else { return nil }
+        let local = view.convert(point, from: hostWindow)
+        guard view.bounds.contains(local) else { return nil }
+        for subview in view.subviews.reversed() {
+            if let hit = deepestView(at: point, in: subview, hostWindow: hostWindow) {
+                return hit
+            }
+        }
+        return view
     }
 
     // MARK: - Toggle
