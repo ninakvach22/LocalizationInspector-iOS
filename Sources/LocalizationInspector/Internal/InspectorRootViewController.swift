@@ -151,7 +151,7 @@ final class InspectorRootViewController: UIViewController {
         let pointInSelf = gesture.location(in: view)
         let screenPoint = view.window?.convert(pointInSelf, to: nil) ?? pointInSelf
         let pointInHost = host.convert(screenPoint, from: nil)
-        let picked = deepestView(at: pointInHost, in: host, hostWindow: host) ?? host
+        let picked = pickView(at: pointInHost, in: host, hostWindow: host) ?? host
 
         let nav = UINavigationController(rootViewController: makeHierarchyController())
         nav.modalPresentationStyle = .fullScreen
@@ -159,18 +159,26 @@ final class InspectorRootViewController: UIViewController {
         present(nav, animated: true)
     }
 
-    /// Deepest view containing `point` (in `hostWindow` coords), any kind, ignoring
-    /// `isUserInteractionEnabled`.
-    private func deepestView(at point: CGPoint, in view: UIView, hostWindow: UIWindow) -> UIView? {
+    /// Deepest view containing `point` (in `hostWindow` coords), ignoring
+    /// `isUserInteractionEnabled` so passive labels are still selectable, but
+    /// walking *past* transparent full-screen pass-through containers (e.g. an
+    /// iOS 26 floating tab-bar host) instead of stopping at them.
+    private func pickView(at point: CGPoint, in view: UIView, hostWindow: UIWindow) -> UIView? {
         guard !view.isHidden, view.alpha > 0.01 else { return nil }
-        let local = view.convert(point, from: hostWindow)
-        guard view.bounds.contains(local) else { return nil }
+        guard view.bounds.contains(view.convert(point, from: hostWindow)) else { return nil }
         for subview in view.subviews.reversed() {
-            if let hit = deepestView(at: point, in: subview, hostWindow: hostWindow) {
-                return hit
-            }
+            guard let hit = pickView(at: point, in: subview, hostWindow: hostWindow) else { continue }
+            if isPassThrough(hit, at: point, hostWindow: hostWindow) { continue }
+            return hit
         }
         return view
+    }
+
+    private func isPassThrough(_ view: UIView, at point: CGPoint, hostWindow: UIWindow) -> Bool {
+        if let text = ViewIntrospector.text(from: view), !text.isEmpty { return false }
+        if (view as? UIImageView)?.image != nil { return false }
+        if let bg = view.backgroundColor, bg.cgColor.alpha > 0.01 { return false }
+        return view.hitTest(view.convert(point, from: hostWindow), with: nil) == nil
     }
 
     // MARK: - Toggle
