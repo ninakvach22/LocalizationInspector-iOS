@@ -52,10 +52,11 @@ final class InspectorRootViewController: UIViewController {
 
     private lazy var pickOverlay: UIView = {
         let overlay = UIView()
-        overlay.backgroundColor = UIColor.systemTeal.withAlphaComponent(0.12)
-        overlay.layer.borderColor = UIColor.systemTeal.cgColor
-        overlay.layer.borderWidth = 3
-        overlay.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(pickOverlayTapped(_:))))
+        overlay.backgroundColor = UIColor.systemTeal.withAlphaComponent(0.04)
+        let press = UILongPressGestureRecognizer(target: self, action: #selector(pickPressed(_:)))
+        press.minimumPressDuration = 0
+        press.allowableMovement = .greatestFiniteMagnitude
+        overlay.addGestureRecognizer(press)
         return overlay
     }()
 
@@ -141,7 +142,7 @@ final class InspectorRootViewController: UIViewController {
             self.setControlsHidden(true)
             self.pickOverlay.frame = self.view.bounds
             self.view.addSubview(self.pickOverlay)
-            self.showToast("Tap any view to inspect it")
+            self.showToast("Drag to preview, lift to pick")
         }
         if presentedViewController != nil {
             dismiss(animated: true, completion: show)
@@ -161,16 +162,28 @@ final class InspectorRootViewController: UIViewController {
         setControlsHidden(false)
     }
 
-    @objc private func pickOverlayTapped(_ gesture: UITapGestureRecognizer) {
-        endViewPick()
+    @objc private func pickPressed(_ gesture: UILongPressGestureRecognizer) {
         guard let host = HostWindowResolver.keyWindow() else { return }
         let pointInSelf = gesture.location(in: view)
         let screenPoint = view.window?.convert(pointInSelf, to: nil) ?? pointInSelf
         let pointInHost = host.convert(screenPoint, from: nil)
-        let picked = pickView(at: pointInHost, host: host)
 
-        ViewHighlighter.highlight(picked)
+        switch gesture.state {
+        case .began, .changed:
+            ViewHighlighter.highlight(pickView(at: pointInHost, host: host))
+        case .ended:
+            let picked = pickView(at: pointInHost, host: host)
+            endViewPick()
+            ViewHighlighter.highlight(picked)
+            presentHierarchy(revealing: picked, in: host)
+        case .cancelled, .failed:
+            break
+        default:
+            break
+        }
+    }
 
+    private func presentHierarchy(revealing picked: UIView, in host: UIWindow) {
         let hierarchy = ViewHierarchyViewController(root: host, reveal: picked) { [weak self] in
             self?.beginViewPick()
         }
@@ -191,6 +204,7 @@ final class InspectorRootViewController: UIViewController {
     }
 
     private func pickView(at point: CGPoint, in view: UIView, host: UIWindow) -> UIView? {
+        guard view !== ViewHighlighter.box else { return nil }
         guard !view.isHidden, view.alpha > 0.01 else { return nil }
         guard view.bounds.width > 0, view.bounds.height > 0 else { return nil }
         guard view.bounds.contains(view.convert(point, from: host)) else { return nil }
