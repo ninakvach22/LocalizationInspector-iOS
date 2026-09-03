@@ -52,7 +52,10 @@ final class ViewHierarchyViewController: UIViewController, UITableViewDataSource
         rebuild()
     }
 
-    @objc private func close() { dismiss(animated: true) }
+    @objc private func close() {
+        ViewHighlighter.clear()
+        dismiss(animated: true)
+    }
 
     @objc private func pick() { onPickRequested?() }
 

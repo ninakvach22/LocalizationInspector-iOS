@@ -41,6 +41,7 @@ final class InspectorRootViewController: UIViewController {
     }
 
     private var isPickingView = false
+    var isPickingViewOnScreen: Bool { isPickingView }
 
     private lazy var tapOverlay: UIView = {
         let overlay = UIView()
@@ -51,7 +52,9 @@ final class InspectorRootViewController: UIViewController {
 
     private lazy var pickOverlay: UIView = {
         let overlay = UIView()
-        overlay.backgroundColor = UIColor.systemTeal.withAlphaComponent(0.06)
+        overlay.backgroundColor = UIColor.systemTeal.withAlphaComponent(0.12)
+        overlay.layer.borderColor = UIColor.systemTeal.cgColor
+        overlay.layer.borderWidth = 3
         overlay.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(pickOverlayTapped(_:))))
         return overlay
     }()
@@ -122,6 +125,7 @@ final class InspectorRootViewController: UIViewController {
     }
 
     private func presentModally(_ root: UIViewController) {
+        ViewHighlighter.clear()
         let nav = UINavigationController(rootViewController: root)
         nav.modalPresentationStyle = .fullScreen
         present(nav, animated: true)
@@ -130,11 +134,13 @@ final class InspectorRootViewController: UIViewController {
     // MARK: - Pick a view on screen
 
     private func beginViewPick() {
+        ViewHighlighter.clear()
         let show = { [weak self] in
             guard let self = self else { return }
             self.isPickingView = true
+            self.setControlsHidden(true)
             self.pickOverlay.frame = self.view.bounds
-            self.view.insertSubview(self.pickOverlay, belowSubview: self.toggleButton)
+            self.view.addSubview(self.pickOverlay)
             self.showToast("Tap any view to inspect it")
         }
         if presentedViewController != nil {
@@ -144,41 +150,65 @@ final class InspectorRootViewController: UIViewController {
         }
     }
 
-    @objc private func pickOverlayTapped(_ gesture: UITapGestureRecognizer) {
+    private func setControlsHidden(_ hidden: Bool) {
+        toggleButton.isHidden = hidden
+        for button in [networkButton, defaultsButton, treeButton] { button.isHidden = hidden }
+    }
+
+    private func endViewPick() {
         isPickingView = false
         pickOverlay.removeFromSuperview()
+        setControlsHidden(false)
+    }
+
+    @objc private func pickOverlayTapped(_ gesture: UITapGestureRecognizer) {
+        endViewPick()
         guard let host = HostWindowResolver.keyWindow() else { return }
         let pointInSelf = gesture.location(in: view)
         let screenPoint = view.window?.convert(pointInSelf, to: nil) ?? pointInSelf
         let pointInHost = host.convert(screenPoint, from: nil)
-        let picked = pickView(at: pointInHost, in: host, hostWindow: host) ?? host
+        let picked = pickView(at: pointInHost, host: host)
 
-        let nav = UINavigationController(rootViewController: makeHierarchyController())
+        ViewHighlighter.highlight(picked)
+
+        let hierarchy = makeHierarchyController()
+        let detail = ViewDetailViewController(view: picked)
+        let nav = UINavigationController(rootViewController: hierarchy)
+        nav.viewControllers = [hierarchy, detail]
         nav.modalPresentationStyle = .fullScreen
-        nav.pushViewController(ViewDetailViewController(view: picked), animated: false)
         present(nav, animated: true)
     }
 
-    /// Deepest view containing `point` (in `hostWindow` coords), ignoring
-    /// `isUserInteractionEnabled` so passive labels are still selectable, but
-    /// walking *past* transparent full-screen pass-through containers (e.g. an
-    /// iOS 26 floating tab-bar host) instead of stopping at them.
-    private func pickView(at point: CGPoint, in view: UIView, hostWindow: UIWindow) -> UIView? {
+    /// Deepest meaningful view under `point`. Walks the key window's subviews
+    /// front-to-back and skips any transparent, near-full-screen container
+    /// (e.g. an iOS 26 floating tab-bar host) so the tap lands on the real
+    /// content behind it. Ignores `isUserInteractionEnabled` so passive labels
+    /// are still selectable.
+    private func pickView(at point: CGPoint, host: UIWindow) -> UIView {
+        for windowSubview in host.subviews.reversed() {
+            guard let candidate = deepestLeaf(at: point, in: windowSubview, host: host) else { continue }
+            if isSkippableOverlay(candidate, host: host) { continue }
+            return candidate
+        }
+        return host
+    }
+
+    private func deepestLeaf(at point: CGPoint, in view: UIView, host: UIWindow) -> UIView? {
         guard !view.isHidden, view.alpha > 0.01 else { return nil }
-        guard view.bounds.contains(view.convert(point, from: hostWindow)) else { return nil }
+        guard view.bounds.contains(view.convert(point, from: host)) else { return nil }
         for subview in view.subviews.reversed() {
-            guard let hit = pickView(at: point, in: subview, hostWindow: hostWindow) else { continue }
-            if isPassThrough(hit, at: point, hostWindow: hostWindow) { continue }
-            return hit
+            if let hit = deepestLeaf(at: point, in: subview, host: host) { return hit }
         }
         return view
     }
 
-    private func isPassThrough(_ view: UIView, at point: CGPoint, hostWindow: UIWindow) -> Bool {
+    private func isSkippableOverlay(_ view: UIView, host: UIWindow) -> Bool {
         if let text = ViewIntrospector.text(from: view), !text.isEmpty { return false }
         if (view as? UIImageView)?.image != nil { return false }
         if let bg = view.backgroundColor, bg.cgColor.alpha > 0.01 { return false }
-        return view.hitTest(view.convert(point, from: hostWindow), with: nil) == nil
+        let area = view.bounds.width * view.bounds.height
+        let windowArea = host.bounds.width * host.bounds.height
+        return windowArea > 0 && area >= windowArea * 0.85
     }
 
     // MARK: - Toggle

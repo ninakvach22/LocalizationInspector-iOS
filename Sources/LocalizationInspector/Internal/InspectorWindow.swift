@@ -26,8 +26,9 @@ final class InspectorWindow: UIWindow {
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard let root = inspectorRoot else { return nil }
 
-        // A presented alert (our result popup) must stay fully interactive.
-        if root.presentedViewController != nil {
+        // A presented alert (our result popup) and "pick a view" mode need the
+        // window to behave normally so the overlay reliably receives the touch.
+        if root.presentedViewController != nil || root.isPickingViewOnScreen {
             return super.hitTest(point, with: event)
         }
 

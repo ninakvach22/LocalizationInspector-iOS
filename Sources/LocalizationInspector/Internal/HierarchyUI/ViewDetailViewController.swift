@@ -5,7 +5,7 @@ final class ViewDetailViewController: UITableViewController {
 
     private weak var target: UIView?
     private var sections: [ViewDescribe.Section] = []
-    private var flashView: UIView?
+    private var showsRuntime = false
 
     init(view: UIView) {
         self.target = view
@@ -23,7 +23,7 @@ final class ViewDetailViewController: UITableViewController {
         title = target.map { String(describing: type(of: $0)) } ?? "View"
         navigationItem.rightBarButtonItems = [
             UIBarButtonItem(barButtonSystemItem: .action, target: self, action: #selector(share)),
-            UIBarButtonItem(title: "Flash", style: .plain, target: self, action: #selector(flash))
+            UIBarButtonItem(title: "Runtime", style: .plain, target: self, action: #selector(toggleRuntime))
         ]
         tableView.register(PropertyCell.self, forCellReuseIdentifier: "cell")
         tableView.rowHeight = UITableView.automaticDimension
@@ -34,12 +34,23 @@ final class ViewDetailViewController: UITableViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         rebuild()
+        if let target = target { ViewHighlighter.highlight(target) }
     }
 
     private func rebuild() {
         guard let target = target else { sections = []; tableView.reloadData(); return }
         sections = ViewDescribe.sections(for: target)
+        if showsRuntime {
+            sections += RuntimeIntrospect.propertySections(for: target)
+            if let ivars = RuntimeIntrospect.ivarSection(for: target) { sections.append(ivars) }
+        }
         tableView.reloadData()
+    }
+
+    @objc private func toggleRuntime() {
+        showsRuntime.toggle()
+        navigationItem.rightBarButtonItems?.last?.style = showsRuntime ? .done : .plain
+        rebuild()
     }
 
     @objc private func share() {
@@ -47,22 +58,6 @@ final class ViewDetailViewController: UITableViewController {
         let sheet = UIActivityViewController(activityItems: [ViewDescribe.plainText(for: target)], applicationActivities: nil)
         sheet.popoverPresentationController?.barButtonItem = navigationItem.rightBarButtonItems?.first
         present(sheet, animated: true)
-    }
-
-    /// Briefly overlays a colored box on the real view so you can spot it on screen.
-    @objc private func flash() {
-        guard let target = target, let window = target.window else { return }
-        flashView?.removeFromSuperview()
-        let box = UIView(frame: target.convert(target.bounds, to: window))
-        box.backgroundColor = UIColor.systemPink.withAlphaComponent(0.35)
-        box.layer.borderColor = UIColor.systemPink.cgColor
-        box.layer.borderWidth = 1
-        box.isUserInteractionEnabled = false
-        box.layer.zPosition = .greatestFiniteMagnitude
-        window.addSubview(box)
-        flashView = box
-        UIView.animate(withDuration: 0.9, delay: 0.6, options: [], animations: { box.alpha = 0 },
-                       completion: { _ in box.removeFromSuperview() })
     }
 
     // MARK: Table
