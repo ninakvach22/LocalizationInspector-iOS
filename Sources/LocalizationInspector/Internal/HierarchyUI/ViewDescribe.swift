@@ -63,7 +63,7 @@ enum ViewDescribe {
             ("contentMode", "\(view.contentMode.rawValue)")
         ]
         if let bg = view.backgroundColor { appearance.append(("backgroundColor", color(bg))) }
-        appearance.append(("tintColor", color(view.tintColor)))
+        if let tint = view.tintColor { appearance.append(("tintColor", color(tint))) }
         sections.append(Section(title: "Appearance", rows: appearance))
 
         let layer = view.layer
