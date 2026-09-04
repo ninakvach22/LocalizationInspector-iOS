@@ -38,8 +38,7 @@ public struct LocalizationInspectorConfiguration {
     public var apiHosts: [String] = []
 
     /// Show the floating buttons as soon as `start(...)` is called. When
-    /// `false` (default) the inspector is armed but hidden until a shake or an
-    /// explicit `show()` — and it remembers the last state across launches.
+    /// `false` (default) every launch starts hidden and a shake reveals them.
     public var startsVisible = false
 
     /// Shake the device to show / hide the floating buttons. Default: `true`.

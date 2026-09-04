@@ -33,13 +33,12 @@ gerek yok — testçilerin TestFlight'ta kullanabilmesi için doğrudan çağır
 
 ### Görünürlük — cihazı salla
 
-`start(...)` inspector'ı **kurar ama göstermez**. Butonlar:
+`start(...)` inspector'ı **kurar ama göstermez**. **Her açılış kapalı başlar.** Butonlar:
 - **cihazı sallayınca** açılır/kapanır (`config.togglesOnShake`, default açık)
 - `config.startsVisible = true` ise hemen görünür
 - `LocalizationInspector.shared.show()` / `.stop()` / `.toggle()` ile
-- son durum UserDefaults'ta saklanır — sonraki açılışta hatırlanır
 
-Testçi normalde hiçbir şey görmez; sallayınca inspector çıkar, tekrar sallayınca gizlenir.
+Testçi normalde hiçbir şey görmez; sallayınca inspector çıkar, tekrar sallayınca (veya uygulamayı kapatıp açınca) gizlenir.
 
 ### Kesin key (recordKeyResolution)
 

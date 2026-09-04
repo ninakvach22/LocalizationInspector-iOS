@@ -18,7 +18,6 @@ public final class LocalizationInspector {
 
     private var window: InspectorWindow?
     private var configuration: LocalizationInspectorConfiguration?
-    private let visibilityKey = "LocalizationInspector.visible"
 
     private init() {}
 
@@ -93,7 +92,8 @@ public final class LocalizationInspector {
     /// `application(_:didFinishLaunchingWithOptions:)`** — it installs the
     /// network interceptor and key recorder immediately, so requests made
     /// during launch / Splash are captured even though the floating buttons
-    /// stay hidden until a shake (`config.togglesOnShake`) or `config.startsVisible`.
+    /// stay hidden. Every launch starts hidden; a shake (`config.togglesOnShake`)
+    /// reveals the buttons for that session. `config.startsVisible` overrides.
     /// The UI window is only created when the buttons are first shown, so an
     /// early call is safe.
     public func start(configuration: LocalizationInspectorConfiguration) {
@@ -108,14 +108,12 @@ public final class LocalizationInspector {
         if configuration.togglesOnShake {
             onMain { ShakeDetector.install() }
         }
-
-        let wasVisible = UserDefaults.standard.bool(forKey: visibilityKey)
-        if configuration.startsVisible || wasVisible {
+        if configuration.startsVisible {
             onMain { self.show() }
         }
     }
 
-    /// Show the floating buttons now (also persisted for next launch).
+    /// Show the floating buttons now.
     public func show() {
         guard allowed, configuration != nil else { return }
         onMain {
@@ -125,16 +123,14 @@ public final class LocalizationInspector {
                 self.window = window
             }
             self.window?.isHidden = false
-            UserDefaults.standard.set(true, forKey: self.visibilityKey)
         }
     }
 
-    /// Hide the floating buttons (persisted).
+    /// Hide the floating buttons.
     public func stop() {
         onMain {
             self.window?.isHidden = true
             self.window = nil
-            UserDefaults.standard.set(false, forKey: self.visibilityKey)
         }
     }
 
