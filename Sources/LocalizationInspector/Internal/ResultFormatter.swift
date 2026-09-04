@@ -34,18 +34,29 @@ enum ResultFormatter {
                 lines.append("Frame: x:\(Int(frame.origin.x)) y:\(Int(frame.origin.y)) w:\(Int(frame.width)) h:\(Int(frame.height))")
             }
 
-            let recordedKeys = TextSetterSwizzler.recordedKeys(for: sourceView)
+            // Prefer the key tagged on the view; fall back to any key the app
+            // actually resolved to this exact string (covers tab-bar / nav /
+            // bar-button titles whose internal label the setter swizzle misses).
+            var recordedKeys = TextSetterSwizzler.recordedKeys(for: sourceView)
+            var recordedByValue = false
+            if recordedKeys.isEmpty, KeyResolutionRecorder.shared.isActive {
+                recordedKeys = KeyResolutionRecorder.shared.keys(for: text)
+                recordedByValue = !recordedKeys.isEmpty
+            }
+
             if recordedKeys.count == 1 {
-                lines.append("\nSource: Backend (CMS) — exact key (recorded)")
+                lines.append(recordedByValue
+                    ? "\nSource: Backend (CMS) — resolved from this key"
+                    : "\nSource: Backend (CMS) — exact key (recorded)")
                 lines.append("Key: \(recordedKeys[0])")
                 copyableKey = recordedKeys[0]
             } else if recordedKeys.count > 1 {
-                lines.append("\nSource: Backend (CMS) — recorded, \(recordedKeys.count) keys share this value")
+                lines.append("\nSource: Backend (CMS) — \(recordedKeys.count) keys resolved to this value")
                 lines.append("Keys:\n" + recordedKeys.joined(separator: "\n"))
                 copyableKey = recordedKeys.first
             } else if KeyResolutionRecorder.shared.isActive {
-                // Recording is on and this view carries no key ⇒ it was not set
-                // from `.value`. Definitive, no fuzzy string matching.
+                // Recording is on and nothing resolved to this string ⇒ it was
+                // not set from `.value`. Definitive, no fuzzy string matching.
                 if case let .backendUndefined(key) = matcher.classify(text) {
                     lines.append("\nSource: Backend (CMS) — key not defined in panel")
                     lines.append("Key: \(key)")
