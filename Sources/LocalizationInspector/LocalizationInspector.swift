@@ -17,10 +17,15 @@ public final class LocalizationInspector {
     public static let shared = LocalizationInspector()
 
     private var window: InspectorWindow?
+    private var configuration: LocalizationInspectorConfiguration?
+    private let visibilityKey = "LocalizationInspector.visible"
 
     private init() {}
 
     public var isRunning: Bool { window != nil }
+
+    /// Whether the floating buttons are currently on screen.
+    public var isVisible: Bool { window?.isHidden == false }
 
     /// Opt in to running in a Release build that is *not* App Store production
     /// even without the sandbox receipt (e.g. an enterprise or ad-hoc QA build).
@@ -84,38 +89,62 @@ public final class LocalizationInspector {
         start(configuration: LocalizationInspectorConfiguration(entriesProvider: entriesProvider))
     }
 
+    /// Arms the inspector. The floating buttons appear when `config.startsVisible`
+    /// is true, or when they were left visible on a previous launch. With
+    /// `config.togglesOnShake` (default) a shake shows/hides them — the way
+    /// testers on a TestFlight build turn the tool on only when they need it.
     public func start(configuration: LocalizationInspectorConfiguration) {
-        guard allowed, configuration.isEnabled, !isRunning else { return }
+        guard allowed, configuration.isEnabled else { return }
+        self.configuration = configuration
 
         if configuration.observesNetwork {
             NetworkTransactionStore.shared.maxBodyBytes = configuration.maxNetworkBodyBytes
             NetworkObserver.install()
         }
-
-        let install = { [weak self] in
-            guard let self = self, !self.isRunning else { return }
-            let window = InspectorWindow()
-            (window.rootViewController as? InspectorRootViewController)?.configuration = configuration
-            self.window = window
+        if configuration.togglesOnShake {
+            onMain { ShakeDetector.install() }
         }
 
-        if Thread.isMainThread {
-            install()
-        } else {
-            DispatchQueue.main.async(execute: install)
+        let wasVisible = UserDefaults.standard.bool(forKey: visibilityKey)
+        if configuration.startsVisible || wasVisible {
+            onMain { self.show() }
         }
     }
 
+    /// Show the floating buttons now (also persisted for next launch).
+    public func show() {
+        guard allowed, configuration != nil else { return }
+        onMain {
+            if self.window == nil {
+                let window = InspectorWindow()
+                (window.rootViewController as? InspectorRootViewController)?.configuration = self.configuration
+                self.window = window
+            }
+            self.window?.isHidden = false
+            UserDefaults.standard.set(true, forKey: self.visibilityKey)
+        }
+    }
+
+    /// Hide the floating buttons (persisted).
     public func stop() {
-        let teardown = { [weak self] in
-            self?.window?.isHidden = true
-            self?.window = nil
+        onMain {
+            self.window?.isHidden = true
+            self.window = nil
+            UserDefaults.standard.set(false, forKey: self.visibilityKey)
         }
-        if Thread.isMainThread {
-            teardown()
-        } else {
-            DispatchQueue.main.async(execute: teardown)
-        }
+    }
+
+    public func toggle() { isVisible ? stop() : show() }
+
+    func handleShake() {
+        guard allowed, configuration?.togglesOnShake == true else { return }
+        let willShow = !isVisible
+        toggle()
+        Toast.show(willShow ? "Inspector shown" : "Inspector hidden — shake to show")
+    }
+
+    private func onMain(_ block: @escaping () -> Void) {
+        if Thread.isMainThread { block() } else { DispatchQueue.main.async(execute: block) }
     }
 }
 #endif

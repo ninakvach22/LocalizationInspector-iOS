@@ -31,6 +31,16 @@ receipt) **veya** `LocalizationInspector.enableInRelease = true`. **App Store'da
 inen build'de hiçbir zaman çalışmaz.** Bu yüzden çağrıları `#if DEBUG` ile sarmana
 gerek yok — testçilerin TestFlight'ta kullanabilmesi için doğrudan çağır.
 
+### Görünürlük — cihazı salla
+
+`start(...)` inspector'ı **kurar ama göstermez**. Butonlar:
+- **cihazı sallayınca** açılır/kapanır (`config.togglesOnShake`, default açık)
+- `config.startsVisible = true` ise hemen görünür
+- `LocalizationInspector.shared.show()` / `.stop()` / `.toggle()` ile
+- son durum UserDefaults'ta saklanır — sonraki açılışta hatırlanır
+
+Testçi normalde hiçbir şey görmez; sallayınca inspector çıkar, tekrar sallayınca gizlenir.
+
 ### Kesin key (recordKeyResolution)
 
 String eşleştirmesi aynı değere sahip key'leri ayıramaz. Content katmanına tek satır

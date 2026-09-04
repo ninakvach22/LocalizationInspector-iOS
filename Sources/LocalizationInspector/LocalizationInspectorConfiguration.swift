@@ -33,6 +33,14 @@ public struct LocalizationInspectorConfiguration {
     /// and telemetry traffic then lands under "Other". Default: `[]`.
     public var apiHosts: [String] = []
 
+    /// Show the floating buttons as soon as `start(...)` is called. When
+    /// `false` (default) the inspector is armed but hidden until a shake or an
+    /// explicit `show()` — and it remembers the last state across launches.
+    public var startsVisible = false
+
+    /// Shake the device to show / hide the floating buttons. Default: `true`.
+    public var togglesOnShake = true
+
     /// Master switch. `start(...)` does nothing while this is `false`, so a
     /// release build can leave the call in place. Default: `true`.
     public var isEnabled = true
