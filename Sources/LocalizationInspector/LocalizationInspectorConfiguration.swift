@@ -27,6 +27,10 @@ public struct LocalizationInspectorConfiguration {
     /// Default: 4 MB.
     public var maxNetworkBodyBytes = 4 * 1024 * 1024
 
+    /// How many recent transactions the 🌐 list keeps. Raise it if the app
+    /// makes many requests before a tester opens the inspector. Default: 500.
+    public var maxNetworkTransactions = 500
+
     /// Hosts that count as "your API" in the 🌐 list's All / API / Other filter,
     /// matched as a domain suffix (`"jety.app"` matches `"mobile.jety.app"`).
     /// When empty, the API filter falls back to "path contains /api". Analytics

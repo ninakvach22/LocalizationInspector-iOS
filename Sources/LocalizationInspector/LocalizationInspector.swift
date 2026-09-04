@@ -89,16 +89,20 @@ public final class LocalizationInspector {
         start(configuration: LocalizationInspectorConfiguration(entriesProvider: entriesProvider))
     }
 
-    /// Arms the inspector. The floating buttons appear when `config.startsVisible`
-    /// is true, or when they were left visible on a previous launch. With
-    /// `config.togglesOnShake` (default) a shake shows/hides them — the way
-    /// testers on a TestFlight build turn the tool on only when they need it.
+    /// Arms the inspector. **Call this once at the top of
+    /// `application(_:didFinishLaunchingWithOptions:)`** — it installs the
+    /// network interceptor and key recorder immediately, so requests made
+    /// during launch / Splash are captured even though the floating buttons
+    /// stay hidden until a shake (`config.togglesOnShake`) or `config.startsVisible`.
+    /// The UI window is only created when the buttons are first shown, so an
+    /// early call is safe.
     public func start(configuration: LocalizationInspectorConfiguration) {
         guard allowed, configuration.isEnabled else { return }
         self.configuration = configuration
 
         if configuration.observesNetwork {
             NetworkTransactionStore.shared.maxBodyBytes = configuration.maxNetworkBodyBytes
+            NetworkTransactionStore.shared.maxTransactions = configuration.maxNetworkTransactions
             NetworkObserver.install()
         }
         if configuration.togglesOnShake {
