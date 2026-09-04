@@ -22,6 +22,20 @@ public final class LocalizationInspector {
 
     public var isRunning: Bool { window != nil }
 
+    /// Hard kill switch: the tool only ever activates in a build compiled with
+    /// `DEBUG` defined. SwiftPM builds this package with the app's own
+    /// configuration, so a Release / App Store / standard TestFlight archive
+    /// makes every entry point below a no-op — the floating window, the
+    /// swizzles and the network interceptor cannot run there regardless of what
+    /// the app calls.
+    private var allowed: Bool {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
+    }
+
     /// Report a `key → resolved value` pair every time your content layer
     /// resolves one (one line inside `ContentManager.getText`). The inspector
     /// then swizzles the UIKit text setters and, when a recorded string is
@@ -38,6 +52,7 @@ public final class LocalizationInspector {
     ///         return value
     ///     }
     public func recordKeyResolution(key: String, value: String) {
+        guard allowed else { return }
         if !KeyResolutionRecorder.shared.isActive {
             KeyResolutionRecorder.shared.activate()
             let install = { TextSetterSwizzler.install() }
@@ -54,6 +69,7 @@ public final class LocalizationInspector {
     /// (Alamofire reads `URLSessionConfiguration.default` when its `Session` is
     /// first built, and that only happens once). Idempotent.
     public func observeNetwork() {
+        guard allowed else { return }
         NetworkObserver.install()
     }
 
@@ -62,7 +78,7 @@ public final class LocalizationInspector {
     }
 
     public func start(configuration: LocalizationInspectorConfiguration) {
-        guard configuration.isEnabled, !isRunning else { return }
+        guard allowed, configuration.isEnabled, !isRunning else { return }
 
         if configuration.observesNetwork {
             NetworkTransactionStore.shared.maxBodyBytes = configuration.maxNetworkBodyBytes
