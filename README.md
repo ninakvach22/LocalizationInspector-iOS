@@ -23,6 +23,14 @@ Sağ altta yüzen butonlar:
 
 Butonlar sürüklenebilir. Inspect modu kapalıyken dokunuşlar uygulamaya normal geçer.
 
+### Ne zaman aktif?
+
+`start` / `observeNetwork` / `recordKeyResolution` yalnızca şu durumlarda çalışır:
+DEBUG build **veya** TestFlight / development ile kurulmuş bir Release build (sandbox
+receipt) **veya** `LocalizationInspector.enableInRelease = true`. **App Store'dan
+inen build'de hiçbir zaman çalışmaz.** Bu yüzden çağrıları `#if DEBUG` ile sarmana
+gerek yok — testçilerin TestFlight'ta kullanabilmesi için doğrudan çağır.
+
 ### Kesin key (recordKeyResolution)
 
 String eşleştirmesi aynı değere sahip key'leri ayıramaz. Content katmanına tek satır

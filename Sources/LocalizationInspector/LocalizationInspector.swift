@@ -22,17 +22,24 @@ public final class LocalizationInspector {
 
     public var isRunning: Bool { window != nil }
 
-    /// Hard kill switch: the tool only ever activates in a build compiled with
-    /// `DEBUG` defined. SwiftPM builds this package with the app's own
-    /// configuration, so a Release / App Store / standard TestFlight archive
-    /// makes every entry point below a no-op — the floating window, the
-    /// swizzles and the network interceptor cannot run there regardless of what
-    /// the app calls.
+    /// Opt in to running in a Release build that is *not* App Store production
+    /// even without the sandbox receipt (e.g. an enterprise or ad-hoc QA build).
+    /// Leave `false` for normal use. Never enables an App Store build on its own
+    /// — set it only in a target/config that never ships to the App Store.
+    public static var enableInRelease = false
+
+    private static let hasSandboxReceipt: Bool =
+        Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
+
+    /// Kill switch. The tool runs in a DEBUG build, or in a Release build
+    /// installed via TestFlight / development (sandbox receipt), or when
+    /// `enableInRelease` is set. It never runs in a build downloaded from the
+    /// App Store.
     private var allowed: Bool {
         #if DEBUG
         return true
         #else
-        return false
+        return Self.enableInRelease || Self.hasSandboxReceipt
         #endif
     }
 
